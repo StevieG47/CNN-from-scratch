@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Nov 30 13:24:26 2017
-
 @author: steve
 """
 
@@ -10,6 +9,8 @@ import _pickle as pickle
 import gzip
 import numpy as np
 import matplotlib.pyplot as plt, matplotlib.image as mpimg
+
+#from CNN import *
 
 #################################---READ DATA---########################################
 file  = gzip.open('mnist.pkl.gz', 'rb')
@@ -52,27 +53,18 @@ plt.title(np.where(training[1][index] == 1)[0][0]) # show prediction in title
 
 #################################---CREATE MODEL---########################################
 x,y = training[0][0].shape
-input_shape = (1,x,y)
+inputShape = (1,x,y)
+
+# Create layers to be used
+# dict = {'Name': 'Zara', 'Age': 7} # keys are Name and Age, values are Zara and 7
+layers = [
+        {'Convolution': {'filterSize': 5, 'stride': 1, 'numFilters': 20} }, # convolution layer
+        {'Pooling': {'poolSize': (2,2)} }, # pooling to reduce computation
+        {'fullyConnected': {'numOutput': 30} }, # full connected layer at the end
+        {'outputLayer': {'numClasses': 10} } # 10 classes for digits 0-9
+        ]
+asf
+# Create Model
+cnn = CNN(inputShape,layers)
 
 
-
-asdf
-#training_inputs = [np.reshape(x, (28, 28)) for x in a]
-#training_results = [vectorized_result(y) for y in b]
-#training_data = zip(training_inputs, training_results)
-#validation_inputs = [np.reshape(x, (28, 28)) for x in va_d[0]]
-#validation_data = zip(validation_inputs, va_d[1])
-#test_inputs = [np.reshape(x, (28, 28)) for x in c]
-#test_data = zip(test_inputs, d)
-
-
-
-
-
-
-
-
-
-
-
-cnn = Net(inputShape,layers)
