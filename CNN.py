@@ -99,6 +99,7 @@ class ConvolutionalLayer(object):
         self.output = np.zeros((self.numFilters, self.outputRows, self.outputCols))
         self.outputValues = np.zeros((self.numFilters, self.outputRows, self.outputCols)) # values before activation
         
+        print('Convolutional Layer Initiated')
 
     # The actual convolution
     def convolution(self,inputData):
@@ -154,8 +155,9 @@ class PoolingLayer(object):
         self.height = inputShape[1]
         self.width = inputShape[2]
         
-        # Define pool size
+        # Define pool size and strid
         self.poolSize = poolSize
+        self.stride = 2
         
         # Pooling layer takes in a volume of w1xh1xd1 (width,height,depth)
         # hyperparameters for pooling are poolSize F and stride S
@@ -166,8 +168,82 @@ class PoolingLayer(object):
         
         # Only 2 common seen variations, poolSize = 3, stride = 2, and poolSize = 2, stride = 2
         # poolSizes larger are too destructive
-        
         # Max pooling works better than average or L2 pooling
+        
+        # Set output dimensions
+        self.outputHeight = (self.height - self.poolSize[0])/self.stride + 1
+        self.outputWidth = (self.width - self.poolSize[0])/self.stride + 1
+        
+        # Set output shape
+        # np.empty just sets the shape
+        self.output = np.empty((self.depth, self.outputHeight, self.outputWidth))
+        
+        # Set max indicies matrix, because "during the forward pass of a pooling layer it is 
+        # common to keep track of the index of the max activation (sometimes also called the switches)
+        # so that gradient routing is efficient during backpropagation."
+        self.maxIndices = np.empty((self.depth, self.outputHeight, self.outputWidth,2)) # coordinates are row, column so 2
+        
+        print('Pooling Layer Initiated')
+        
+    
+    def pool(self,inputData):
+        
+        # Flatted height width of input
+        self.Length = self.outputHeight * self.outputWidth
+        
+        # Reshape output and max indices matrix with flattened length
+        self.output = self.output.reshape((self.depth, self.Length))
+        self.maxIndices = self.maxIndices.reshape((self.depth,self.Length,2)) 
+        
+        # Loop through each filter (input from convolution is numFilters x imshape x imshape)
+        for i in range(self.depth):
+            row = 0
+            col = 0
+            
+            # Loop through each value of Length, loop until every value of height,width is found
+            for j in range(self.Length):
+                
+                # Define section pool filter is over
+                section = inputData[i][row:row + self.poolSize[0], col:col + self.poolSize[0]]
+                
+                # Get the max value of the section, set output data
+                maxVal = np.amax(section) # amax gives max of an array
+                self.output[i][j] = maxVal
+                
+                # Get max indices, if theres a tie just take first index
+                # np.where will check each element over an array
+                maxIndex = np.where(section == np.max(section)) 
+                if len(maxIndex[0]) > 1:
+                    maxIndex = [maxIndex[0]]
+                
+                # maxIndex is just indices of the current section, not the inputData, so 
+                # add row, col to get the actual indices
+                maxIndex = int(maxIndex[0]) + row, int(maxIndex[1]) + col
+                
+                # Update max indices
+                self.maxIndices[i][j] = maxIndex
+                
+                # Move across horizontally
+                col += self.stride
+                
+                # If we're at the end of the row (at last column) move down stride rows
+                if col >= self.width:
+                    col = 0 # reset column
+                    row += self.stride # move row down
+                
+                # Reshape output and maxIndices back to original shape
+                self.output = self.output.rehshape((self.depth, self.outputHeight, self.outputWidth))
+                self.maxIndices = self.maxIndices.reshape((self.depth, self.outputHeight, self.outputWidth, 2))
+                
+                
+                
+            
+                
+                
+                
+                
+        
+        
         
         
         
