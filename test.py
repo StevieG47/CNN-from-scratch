@@ -14,7 +14,7 @@ from CNN import *
 
 #################################---READ DATA---########################################
 file  = gzip.open('mnist.pkl.gz', 'rb')
-trainingData, validationData, testData = pickle.load(file, encoding = 'latin') # read data from pickle file
+trainingData, validationData, testDataOriginal = pickle.load(file, encoding = 'latin') # read data from pickle file
 file.close()
 
 numTraining = 1000 # number of training images to use
@@ -23,8 +23,8 @@ numTesting = 500 # number of test images to use
 trainData = trainingData[0][0:numTraining] # only pick numTraining images from 50000 training images
 trainLabel = trainingData[1][0:numTraining] # corresponding training labels
 
-testData = testData[0][0:numTesting]
-testLabel = testData[1][0:numTesting]
+testData = testDataOriginal[0][0:numTesting]
+testLabel = testDataOriginal[1][0:numTesting]
 
 
 #########################---RESHAPE DATA INTO IMAGES---################################
@@ -35,21 +35,23 @@ testData = [np.reshape(x, (28,28)) for x in testData]
 #######################---ONE HOT ENCODING FOR LABELS---#############################
 # Return a 10-dimensional unit vector with a 1 in the ith position and zeroe everywhere else
 def oneHot(i):
-    vec = np.zeros((10))
+    vec = np.zeros((10,1))
     vec[int(i)] = 1
     return vec
 
 trainLabel = [oneHot(x) for x in trainLabel]
-testLabel = [oneHot(x) for x in testLabel]
+#testLabel = [oneHot(x) for x in testLabel]
 
 
 ###############################---PLOT SOME IMAGES---######################################
 training = [trainData,trainLabel]
 testing = [testData,testLabel]
+training = list(zip(trainData,trainLabel))
+testing = list(zip(testData,testLabel))
 index = 10
-im = training[0][index]
-plt.imshow(im,cmap='binary') # plot binary plt
-plt.title(np.where(training[1][index] == 1)[0][0]) # show prediction in title
+im = training[index][0]
+#plt.imshow(im,cmap='binary') # plot binary plt
+#plt.title(np.where(training[1][index] == 1)[0][0]) # show prediction in title
 
 #################################---CREATE MODEL---########################################
 x,y = training[0][0].shape
@@ -69,4 +71,23 @@ test = CNN(inputShape,layers)
 print(' ')
 print('Model Initialized')
 
+# Show a single picture with prediction
+def predictNum(net,testData):
+    i = np.random.randint(0,len(testData))
+    im = testData[i][0].reshape(1,28,28)
+    print(net.forwardPass(im))
+    prediction = np.argmax(net.forwardPass(im))
+    #print(net.forwardPass(im)[4])
+    im = im.reshape(28,28)
+    plt.imshow(im,cmap='binary') # plot binary plt
+    plt.title('Prediction: %i' % prediction) # show prediction in title
+    
+def getAccuracy(net,testData):
+    numCorrect = 0
+    for i in range(len(testData)):
+        im = testData[i][0].reshape(1,28,28)
+        label = testData[i][1]
+        prediction = np.argmax(net.forwardPass(im))
+        if prediction == label: numCorrect += 1
+        print('Accuracy: ',numCorrect/len(testData)*100)
 

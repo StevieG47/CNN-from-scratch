@@ -47,7 +47,50 @@ class CNN(object):
         self.layers = CNNLayers
         
         # TODO: add shapes of weights for each layer, shapes of biases
+        
+        
+    def forwardPass(self, im):
+        
+        # Define previous Output var to be used when moving through layers
+        previousOutput = im
+        
+        # Do a forward pass thorugh 
+        for currentLayer in self.layers:
+            
+            # Set input as the previous output
+            inputData = previousOutput
+            
+            # Get name of current class
+           # print(currentLayer)
+            className = type(currentLayer).__name__
+           # print(className)
+            
+            # If convolutional layer, do convolution
+            if className == 'ConvolutionalLayer':
+                currentLayer.convolution(inputData)
+                #print(currentLayer.output[0][10][10])
                 
+            # If pooling layer, do pooling
+            if className == 'PoolingLayer':
+                currentLayer.pool(inputData)
+               # print(currentLayer.output[0][5][5])
+                
+            # If Fully connected Layer, do forward pass through the layer
+            if className == 'FullyConnectedLayer':
+                currentLayer.forwardPass(inputData)
+                #print(currentLayer.output.shape)
+                
+            # If classification layer, do forward pass on it
+            if className == 'ClassificationLayer':
+                currentLayer.classify(inputData)
+                
+            # Get output, set it to previous Output var
+            previousOutput = currentLayer.output
+            
+        finalOutput = previousOutput
+        return finalOutput
+            
+            
                 
             
 class ConvolutionalLayer(object):
@@ -203,7 +246,7 @@ class PoolingLayer(object):
             col = 0
             
             # Loop through each value of Length, loop until every value of height,width is found
-            for j in range(self.Length):
+            for j in range(self.Length-1):
                 
                 # Define section pool filter is over
                 section = inputData[i][row:row + self.poolSize[0], col:col + self.poolSize[0]]
@@ -216,7 +259,7 @@ class PoolingLayer(object):
                 # np.where will check each element over an array
                 maxIndex = np.where(section == np.max(section)) 
                 if len(maxIndex[0]) > 1:
-                    maxIndex = [maxIndex[0]]
+                    maxIndex = [maxIndex[0][0], maxIndex[1][0]]
                 
                 # maxIndex is just indices of the current section, not the inputData, so 
                 # add row, col to get the actual indices
@@ -233,9 +276,9 @@ class PoolingLayer(object):
                     col = 0 # reset column
                     row += self.stride # move row down
                 
-                # Reshape output and maxIndices back to original shape
-                self.output = self.output.rehshape((self.depth, self.outputHeight, self.outputWidth))
-                self.maxIndices = self.maxIndices.reshape((self.depth, self.outputHeight, self.outputWidth, 2))
+        # Reshape output and maxIndices back to original shape
+        self.output = self.output.reshape((self.depth, self.outputHeight, self.outputWidth))
+        self.maxIndices = self.maxIndices.reshape((self.depth, self.outputHeight, self.outputWidth, 2))
                 
                 
 # cBase lass to be used for the fully connected layer and classification layer 
@@ -296,7 +339,7 @@ class FullyConnectedLayer(SingleLayer):
         self.output = sigmoid(self.summedValues)
         
         # Reshape weights back
-        self.weights = self.weights.reshape((self.numOutput))
+        self.weights = self.weights.reshape((self.numOutput, self.depth, self.height, self.width))
 
 class ClassificationLayer(SingleLayer):
     
