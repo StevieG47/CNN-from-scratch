@@ -11,28 +11,28 @@ import numpy as np
 class CNN(object):
     
     # Initiate neural network with input size and all layers to be used
-    def _init_(self,inputShape,layers):
+    def __init__(self,inputShape,layers):
         
         self.inputShape = inputShape
         
         # Convert layers input to correct layer class
-        layerClasses = {'Convolution' : ConvolutionLayer,
+        layerClasses = {'Convolution' : ConvolutionalLayer,
                        'Pooling' : PoolingLayer,
                        'fullyConnected' : FullyConnectedLayer,
-                       'outputLayer' : ClassifyLayer}
+                       'outputLayer' : ClassificationLayer}
         
         CNNLayers = []
         shape = inputShape
-        for i in range(layers):
+        for i in range(len(layers)):
             
-            # get name of key in layer, ex: Convolution, Pooling etc
+            # get name of key in layer, ex: Convolution, Pooling etc, the string inputted
             layerName = list(layers[i].keys())[0] 
             
-            # convert string to class name ex: 'Convolution' to ConvolutionLayer class
-            layerClass = layerClasses(layerName) 
+            # convert input string to class name ex: 'Convolution' to ConvolutionLayer class
+            layerClass = layerClasses[layerName] 
             
             # arguments of the layer, ex: filterSize, numFilters etc
-            layerArguments = list(layers[0].values())[0] 
+            layerArguments = list(layers[i].values())[0] 
             
             # **kwargs allows you to pass keyworded variable length of arguments, our arguments have keys,values
             currentLayer = layerClass(shape,**layerArguments)
@@ -52,7 +52,7 @@ class CNN(object):
             
 class ConvolutionalLayer(object):
     
-    def _init_(self,inputShape,filterSize,numFilters,stride):
+    def __init__(self,inputShape,filterSize,numFilters,stride):
         
         # Get height, width, depth of image
         self.depth = inputShape[0] # number of channels of the image, 3 if RGB image, 1 if binary/grayscale
@@ -99,7 +99,7 @@ class ConvolutionalLayer(object):
         self.output = np.zeros((self.numFilters, self.outputRows, self.outputCols))
         self.outputValues = np.zeros((self.numFilters, self.outputRows, self.outputCols)) # values before activation
         
-        print('Convolutional Layer Initiated')
+        print('Convolutional Layer Initialized')
 
     # The actual convolution
     def convolution(self,inputData):
@@ -132,7 +132,7 @@ class ConvolutionalLayer(object):
                 self.outputValues[i][j] = sumValue + self.biases[i]
                 
                 # Activation function
-                self.output[i][j] = activation(self.outputValues[i][j])
+                self.output[i][j] = sigmoid(self.outputValues[i][j])
                 
                 # Move horizontally across row
                 col += self.stride
@@ -148,7 +148,7 @@ class ConvolutionalLayer(object):
         
 class PoolingLayer(object):
     
-    def _init_(self, inputShape, poolSize):
+    def __init__(self, inputShape, poolSize):
         
         # Get height, width, depth of input
         self.depth = inputShape[0] # number of channels of the image, 3 if RGB image, 1 if binary/grayscale
@@ -176,6 +176,8 @@ class PoolingLayer(object):
         
         # Set output shape
         # np.empty just sets the shape
+        self.outputHeight = int(self.outputHeight)
+        self.outputWidth = int(self.outputWidth)
         self.output = np.empty((self.depth, self.outputHeight, self.outputWidth))
         
         # Set max indicies matrix, because "during the forward pass of a pooling layer it is 
@@ -183,9 +185,9 @@ class PoolingLayer(object):
         # so that gradient routing is efficient during backpropagation."
         self.maxIndices = np.empty((self.depth, self.outputHeight, self.outputWidth,2)) # coordinates are row, column so 2
         
-        print('Pooling Layer Initiated')
+        print('Pooling Layer Initialized')
         
-    
+    # The actual pooling
     def pool(self,inputData):
         
         # Flatted height width of input
@@ -236,11 +238,110 @@ class PoolingLayer(object):
                 self.maxIndices = self.maxIndices.reshape((self.depth, self.outputHeight, self.outputWidth, 2))
                 
                 
+# cBase lass to be used for the fully connected layer and classification layer 
+class SingleLayer(object):
+    
+    # Define summed values (summed wT*x at a node) and output (summed values after activation)
+    def __init__(self, inputShape, outputNum):
+        self.output = np.ones((outputNum,1))
+        self.summedValues = np.ones((outputNum,1))
+        print("Hello There")
+        
+        
+class FullyConnectedLayer(SingleLayer):
+    
+    def __init__(self,inputShape, numOutput):
+        
+        # Use the base class Single Layer to initialize the input and output
+       # super(SingleLayer,self).__init__(inputShape, numOutput)
+        super(SingleLayer,self).__init__()
+        
+        self.output = np.ones((numOutput,1))
+        self.summedValues = np.ones((numOutput,1))
+        
+        # Get depth, width, height
+        self.depth = inputShape[0]
+        self.width = inputShape[1]
+        self.height = inputShape[2]
+        
+        # Set output number
+        self.numOutput = numOutput
+        
+        # Neurons in the fc layer have full connections like how regular neural networks usually are
+        # Can do matrix multiplication with input, so at this stage theres no more volume, just flat array
+        
+        # Set weights and biases
+        self.weights = np.random.randn(self.numOutput,self.depth,self.height,self.width) # weights are numberOutpus x volume of pooling output
+        self.biases = np.random.rand(self.numOutput,1)
+        
+        print('Fully Connected Layer Initialized')
+    
+    # Forward pass through the layer, outputs input to final layer
+    def forwardPass(self,inputData):
+        
+        # We'll do matrix multiplication so we want weights x data = output where
+        # output is ouputNum x 1, so
+        # weights is outputNum x volume 
+        # data is volume x 1
+        # so weights x data becomes a outputNum x 1 matrix
+        
+         # Flatten weights and flatten input data
+        self.weights = self.weights.reshape((self.numOutput, self.depth*self.height*self.width))
+        inputData = inputData.reshape((self.depth*self.height*self.width,1))
+        
+        # w transpose x + bias
+        self.summedValues = np.dot(self.weights,inputData) + self.biases
+        
+        # Output is summedValues pushed through activation
+        self.output = sigmoid(self.summedValues)
+        
+        # Reshape weights back
+        self.weights = self.weights.reshape((self.numOutput))
+
+class ClassificationLayer(SingleLayer):
+    
+    def __init__(self, inputShape, numClasses):
+        
+        # Use base class Single Layer to to initialize input and output
+        # Output is the classes 0-9
+       # super(SingleLayer,self)._init_(inputShape, numClasses)
+        super(SingleLayer,self).__init__()
+        
+        self.output = np.ones((numClasses,1))
+        self.summedValues = np.ones((numClasses,1))
+        
+        # Set output classes
+        self.numClasses = numClasses
+        
+        # Set weights and biases
+        self.weights = np.random.randn(self.numClasses,inputShape[0]) # weights are 10xinputshape
+        self.biases = np.random.randn(self.numClasses,1)
+        
+        print('Classification Layer Initialized')
+    
+    # The actual classification
+    def classify(self,data):
+        
+        # Get summed values, w transpose x, add bias
+        # w transpose x will be [10 x inputShape] x [inputShape x 1] to give a [10x1] output matrix
+        self.summedValues = np.dot(self.weights,data) + self.biases
+        
+        # Output is summed values through activation
+        self.output = sigmoid(self.summedValues)
+        
+        
+        
+        
+        
+        
+        
+        
+        
                 
-            
-                
-                
-                
+# Sigmoid Activation Function
+def sigmoid(x):
+    sig = 1/(1+np.exp(-x))
+    return sig
                 
         
         

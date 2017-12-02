@@ -10,7 +10,7 @@ import gzip
 import numpy as np
 import matplotlib.pyplot as plt, matplotlib.image as mpimg
 
-#from CNN import *
+from CNN import *
 
 #################################---READ DATA---########################################
 file  = gzip.open('mnist.pkl.gz', 'rb')
@@ -63,8 +63,10 @@ layers = [
         {'fullyConnected': {'numOutput': 30} }, # full connected layer at the end
         {'outputLayer': {'numClasses': 10} } # 10 classes for digits 0-9
         ]
-asf
+
 # Create Model
-cnn = CNN(inputShape,layers)
+test = CNN(inputShape,layers)
+print(' ')
+print('Model Initialized')
 
 
