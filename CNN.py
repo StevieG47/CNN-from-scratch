@@ -7,6 +7,7 @@ Created on Thu Nov 30 11:02:58 2017
 """
 
 import numpy as np
+import random
 
 class CNN(object):
     
@@ -47,7 +48,10 @@ class CNN(object):
         self.layers = CNNLayers
         
         # TODO: add shapes of weights for each layer, shapes of biases
-        
+        # Loop through layers and get the weight shapes for each
+        # Pooling layer doesnt have weights that just makes data smaller for easier computation
+        self.weightShapes = [currentLayer.weights.shape for currentLayer in self.layers if type(currentLayer).__name__ != 'PoolingLayer']
+        self.biasShapes = [currentLayer.biases.shape for currentLayer in self.layers if type(currentLayer).__name__ != 'PoolingLayer']
         
     def forwardPass(self, im):
         
@@ -89,6 +93,90 @@ class CNN(object):
             
         finalOutput = previousOutput
         return finalOutput
+    
+    
+    # Use gradient descent to train network
+    def train(self,trainingData, batchSize, learningRate, numEpochs, lamdaVal = None):
+        
+        # Define training size
+        trainSize = len(trainingData)
+        
+        # Keep track of error
+        meanError = []
+        
+        # Keep track of what epoch we are on
+        epochNum = 1
+        
+        # Loop through all epochs
+        for currentEpoch in range(numEpochs):
+            print('Starting Epoch ', epochNum, ' of ',numEpochs)
+            epochNum += 1 # move to next epoch
+            
+            # Shuffle the training Data
+            random.shuffle(trainingData)
+            
+            # Define batches to be used for training
+            # Each batch has batchSize elements
+            # There are a total of trainSize/batchSize batches
+            batches = [trainingData[i:i+batchSize] for i in range(0,trainSize, batchSize)]
+          
+            # Start loss at 0
+            losses = 0
+            
+            # Keep track of what batch we are on
+            batchNum = 1
+            
+            # Loop through batches, backpropogate
+            for currentBatch in batches:
+                print('Batch ',batchNum, ' of ',len(batches))
+                batchNum += 1
+            
+                # Updated loss, back propogate
+                batchLoss = updateLoss(batch,learningRate)
+                losses = losses + batchLoss
+            meanError.append(round(losses/batchSize,2))
+        
+        print('Done Training')
+        
+    
+    # Take a batch and back propogate to update weights
+    def updateLoss(self, batch, LearningRate):
+        
+        # Initialize derivatives using list of weight/bias shapes for each layer
+        derivW = [np.zeros(shape) for shape in self.weightShapes]
+        derivB = [np.zeros(shape) for shape in self.biasShapes]
+        
+        # Initialize batch length
+        batchLength = len(batch)
+        
+        # Loop through each image in the batch
+        # batch[0] is the image, batch[1] is the length 10 one hot encoded label
+        for image, label in batch:
+            
+            # Include the depth in image
+            im = image.reshape((1,28,28))
+            
+            # Do forward pass to update self.layers (compute outputs), variable flag doesnt matter
+            flag = self.forwardPass(im)
+            
+            # Get partial derivatives
+            partialW, partiaB = self.backpropogate(im,label)
+    
+    
+    # Backpropogation function
+    def backpropogate(self,image,label):
+        
+        # Initialize derivatives using list of weight/bias shapes for each layer
+        derivW = [np.zeros(shape) for shape in self.weightShapes]
+        derivB = [np.zeros(shape) for shape in self.biasShapes]
+        
+        prediction = self.layers[len(self.layers)-1].output
+        
+        # Parital Loss / partial Z, where z is the summed values before activation of the final layer
+        partialL_Z = (prediction - label) * dSigmoid(self.layers[len(self.layers)-1].summedValues)
+        
+        
+        
             
             
                 

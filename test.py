@@ -89,5 +89,5 @@ def getAccuracy(net,testData):
         label = testData[i][1]
         prediction = np.argmax(net.forwardPass(im))
         if prediction == label: numCorrect += 1
-        print('Accuracy: ',numCorrect/len(testData)*100)
+    print('Accuracy: ',numCorrect/len(testData)*100)
 
