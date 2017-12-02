@@ -80,7 +80,7 @@ class ConvolutionalLayer(object):
         # must be 3, since this is the depth of the input volume.
         
         # With MNIST the depth is 1, so we have 20 5x5 filters that will slide across image
-        # the output will be 5x5x20, since each filter outputs a 5x5x1. 
+        # the output will be , since each filter outputs a 5x5x1. 
         
         # randn returns samples from standard normal distribution
         self.weights = np.random.randn(numFilters, self.depth, filterSize, filterSize) # num filter, num of channels in image, filtr size
@@ -89,14 +89,95 @@ class ConvolutionalLayer(object):
         
         # Set output with height and width of image H1, W1, size of filter F, padding P, stride S
         # Output dimension is W2xH2xD2 (widthxheightxdepth) where:
-        # W2 = (W1 - F + 2P)/(S+1)
-        # H2 = (H1 - F + 2P)/(S+1)
+        # W2 = (W1 - F + 2P)/S + 1
+        # H2 = (H1 - F + 2P)/S + 1
         # D2 = K
-        self.outputRows =   (self.height - self.filterSize + 2*self.padding)/self.stride + 1
-        self.outputHeight = (self.width - self.filterSize + 2*self.padding)/self.stride + 1
+        self.outputRows =  int( (self.height - self.filterSize + 2*self.padding)/self.stride  + 1 )
+        self.outputCols = int ( (self.width - self.filterSize + 2*self.padding)/self.stride + 1 )
     
         # Set output
-        self.output = np.zeros((self.numFilters, self.outputRows, self.outputHeight))
+        self.output = np.zeros((self.numFilters, self.outputRows, self.outputCols))
+        self.outputValues = np.zeros((self.numFilters, self.outputRows, self.outputCols)) # values before activation
+        
+
+    # The actual convolution
+    def convolution(self,inputData):
+        
+        # Flatten rows/columns into one long array so output is 20x(rows*columns)
+        self.outputValues = self.outputValues.reshape((self.numFilters,self.outputRows * self.outputCols))
+        self.output = self.output.reshape((self.numFilters,self.outputRows * self.outputCols))
+        
+        # Get length of flattened output value. This is the total number of values in the output of convolution
+        outputLength = self.outputRows * self.outputCols
+        
+        # Loop through all filters
+        for i in range(self.numFilters):
+            col = 0
+            row= 0
+            
+            # Loop through sliding the filter across the image, loop until every value of outputLength is found
+            for j in range(outputLength):
+                
+                # Take dot product of filter with part of image it's on
+                # weights[i] is a 1x5x5 since filterSize is 5 and depth is 1
+                # inputData[: , row:row+self.filterSize, col:col+self.filterSize] is also a 1x5x5 since depth is 1, and were specifying rows and columns to be a:a+filterSize
+                # Element-wise multiplication is done with *
+                dotProduct = inputData[: , row:row+self.filterSize, col:col+self.filterSize] * self.weights[i]
+                
+                # Sum the element multiplaction values
+                sumValue = np.sum(dotProduct)
+                
+                # Add the bias, outputValues has values before activation
+                self.outputValues[i][j] = sumValue + self.biases[i]
+                
+                # Activation function
+                self.output[i][j] = activation(self.outputValues[i][j])
+                
+                # Move horizontally across row
+                col += self.stride
+                
+                # Check if we are at the end of the row (at last column)
+                if col + self.filterSize -self.stride >= self.width:
+                    col = 0 # reset column to zero
+                    row += self.stride # move row of filter down
+        
+        # Reshape output back into correct shape
+        self.outputValues = self.outputValues.reshape((self.numFilters, self.outputRows, self.outputCols))
+        self.output = self.output.reshape((self.numFilters, self.outputRows, self.outputCols))
+        
+class PoolingLayer(object):
+    
+    def _init_(self, inputShape, poolSize):
+        
+        # Get height, width, depth of input
+        self.depth = inputShape[0] # number of channels of the image, 3 if RGB image, 1 if binary/grayscale
+        self.height = inputShape[1]
+        self.width = inputShape[2]
+        
+        # Define pool size
+        self.poolSize = poolSize
+        
+        # Pooling layer takes in a volume of w1xh1xd1 (width,height,depth)
+        # hyperparameters for pooling are poolSize F and stride S
+        # Outputs a volume W2xH2xD2 where:
+        # W2 = (W1-F)/S + 1
+        # H2 = (H1-F)/W + 1
+        # D2 = D1
+        
+        # Only 2 common seen variations, poolSize = 3, stride = 2, and poolSize = 2, stride = 2
+        # poolSizes larger are too destructive
+        
+        # Max pooling works better than average or L2 pooling
+        
+        
+        
+        
+        
+        
+        
+                    
+                
+                
         
         
     
