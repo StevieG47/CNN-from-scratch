@@ -8,6 +8,7 @@ Created on Thu Nov 30 11:02:58 2017
 
 import numpy as np
 import random
+from func import *
 
 class CNN(object):
     
@@ -71,22 +72,30 @@ class CNN(object):
             
             # If convolutional layer, do convolution
             if className == 'ConvolutionalLayer':
+                #print('Convoluting')
                 currentLayer.convolution(inputData)
+                #print('Done Convulting')
                 #print(currentLayer.output[0][10][10])
                 
             # If pooling layer, do pooling
             if className == 'PoolingLayer':
+                #print('Pooling')
                 currentLayer.pool(inputData)
+                #print('Done Pooling')
                # print(currentLayer.output[0][5][5])
                 
             # If Fully connected Layer, do forward pass through the layer
             if className == 'FullyConnectedLayer':
+                #print('Begin Fully connected')
                 currentLayer.forwardPass(inputData)
+                #print('Done w/ fully connected')
                 #print(currentLayer.output.shape)
                 
             # If classification layer, do forward pass on it
             if className == 'ClassificationLayer':
+                #print('Begin classify')
                 currentLayer.classify(inputData)
+                #print('Done w/ classify layer')
                 
             # Get output, set it to previous Output var
             previousOutput = currentLayer.output
@@ -107,10 +116,13 @@ class CNN(object):
         # Keep track of what epoch we are on
         epochNum = 1
         
+        # Total trainingRuns
+        numTrainingRuns = len(trainingData)/batchSize * numEpochs * 1.0
+        currentRun = 1
+        
         # Loop through all epochs
         for currentEpoch in range(numEpochs):
             print('Starting Epoch ', epochNum, ' of ',numEpochs)
-            epochNum += 1 # move to next epoch
             
             # Shuffle the training Data
             random.shuffle(trainingData)
@@ -128,13 +140,20 @@ class CNN(object):
             
             # Loop through batches, backpropogate
             for currentBatch in batches:
-                print('Batch ',batchNum, ' of ',len(batches))
+                
+                print('Epoch ', epochNum,' Batch ',batchNum, ' of ',len(batches), ' ',
+                      round(currentRun/numTrainingRuns*100,2),'% Done Training')
                 batchNum += 1
+                currentRun +=1
             
-                # Updated loss, back propogate
-                batchLoss = updateLoss(batch,learningRate)
+                # Updated loss
+                batchLoss = self.updateLoss(currentBatch,learningRate)
                 losses = losses + batchLoss
-            meanError.append(round(losses/batchSize,2))
+               # print('Batch Loss: ', batchLoss)
+               
+           # meanError.append(round(losses/batchSize,2))
+            print ('Mean Error: ', round(losses/batchSize,2))
+            epochNum += 1 # move to next epoch
         
         print('Done Training')
         
@@ -159,21 +178,172 @@ class CNN(object):
             # Do forward pass to update self.layers (compute outputs), variable flag doesnt matter
             flag = self.forwardPass(im)
             
-            # Get partial derivatives
-            partialW, partiaB = self.backpropogate(im,label)
+            # Get partial derivatives for weights, biases
+            finalO, partialB, partialW = self.backpropogate(im,label)
+            
+            # derivB is list with biases for convolutional layer, fully connected layer, and classify layer
+            # partialB is the partialL/partialBias values for all the same layers, is is also
+            # a list with each element being the same shape
+            # For each batch continously add the partialL/partialBias to the derivB term
+            # Same for derivW
+            derivB = [nb + db for nb, db in zip(derivB, partialB)]
+            derivW = [nw + dw for nw, dw in zip(derivW, partialW)]
+        
+        # Get error for last label, final output i batch
+        error = loss(label, finalO)
+        
+        # Make list of layer indices that have weights, for this single block model of conv-->pool-->fc--->classify,
+        # wIndex will just be [0,2,3]
+        ind = 0
+        
+        # list of indices of layers that have weights
+        wIndex = []
+        
+        # loop thorught layers
+        for layer in self.layers:
+            
+            # if it's not pooling (everything but pooling has weights)
+            if type(layer).__name__ != 'PoolingLayer':
+                
+                # add layer indices number
+                wIndex.append(ind)
+            
+            # increase layer indices we're on
+            ind += 1
+        
+        
+        for iterationNum, (lnw, lnb) in enumerate(zip(derivW, derivB)):
+            
+            # iterationNum will be 0,1,2 and our wIndex (for this single block method) is 
+            # [0 2 3] so when we iterate we'll get wIndex[0],wIndex[1], wIndex[2] or 
+            # layer[0],layer[2],layer[3], skipping pooling layer
+            layer = self.layers[wIndex[iterationNum]]
+            
+            # Update current layers weights with mean partialW
+            # We had gotten the derivW by continusouly adding to derivW for each batch, so
+            # divide by the number of batches to get the mean. 
+            # Move in the negative gradient deirection to move toward loss minimum        
+            layer.weights -= LearningRate * lnw / batchLength
+            layer.biases -= LearningRate * lnb / batchLength
+        
+        # return the error so we can keep track of it
+        return error
     
     
     # Backpropogation function
-    def backpropogate(self,image,label):
+    def backpropogate(self,im,label):
         
         # Initialize derivatives using list of weight/bias shapes for each layer
         derivW = [np.zeros(shape) for shape in self.weightShapes]
         derivB = [np.zeros(shape) for shape in self.biasShapes]
         
+        # Prediction is the output vector of the final layer
         prediction = self.layers[len(self.layers)-1].output
         
         # Parital Loss / partial Z, where z is the summed values before activation of the final layer
+        # Z = w transpose x + bias, the output (yhat) is just sigmoid(z2)
+        # So it looks like partialL_Z = (yhat-y) * deriv sigmoid(z2) where z2 is summedValues of last layer ie Classification layer
         partialL_Z = (prediction - label) * dSigmoid(self.layers[len(self.layers)-1].summedValues)
+        
+        # Get layer transition, so layer1 --> layer2
+        # Loop through the transitions and get partial derivatives 
+        # Loop ends at layerNum = 0th layer (convolution layer)
+        # classify layer is layers[3], fully connected is layers[2], pooling is layers[1], convolution is layers[0], the raw image is before that
+        for layerNum in range(len(self.layers)-1, -1, -1): # Loop backwards from layers
+            
+            # With n layers, len(self.layers)-1 is the classify layer
+            # Get consecutive layers 1 and 2 where layer1 --> layer2
+            layer2 = layerNum
+            layer1 = layerNum - 1
+            
+            # Define current layer
+            currentLayer = self.layers[layer2]
+            
+            # Define previous output, the output from 
+            # If num is zero or above is is convolution,pooling, fully connected, or classification
+            if layer1 > -1:
+                prevOut = self.layers[layer1].output
+            
+            # if layer1 is -1, then layerNum is convolution and the prevOut is just the image
+            elif layer1 == -1:
+                prevOut = im
+                
+            
+            # Get names of consecutive layers
+            if layer1 > -1: layer1Name = type(self.layers[layer1]).__name__ # get layer 1 name
+            if layer1 == -1: layer1Name = 'image' # if layer2 is convolution, layer1 isnt a layer it's just the im
+            layer2Name = type(self.layers[layer2]).__name__ # get layer 2 name
+            
+            
+            # Find Derivatives based on layer transition
+            # Update classification layer weights
+            if layer1Name == 'FullyConnectedLayer' and layer2Name == 'ClassificationLayer':
+                
+                deltaB, deltaW, partialL_Z= AutoDiff_CL(partialL_Z,prevOut,
+                                                        currentLayer.summedValues)
+               # print('Class to Full')
+
+            # Update weights of fully connected layer
+            if layer1Name == 'PoolingLayer' and layer2Name == 'FullyConnectedLayer':
+                
+                # prevOut is output of pooling layer, summedValues is Z of fully connected layer
+                # partialL_Z is (yhat-y)*partialSigmoid(z2)/partial_z2 where z2 is summed values of CL layer
+                deltaB, deltaW, partialL_Z = AutoDiff_FC(partialL_Z, prevWeights, 
+                                                         prevOut, currentLayer.summedValues)
+               # print('Full to Pool')
+                # The new partialL_Z is now wrt Z1, or the summedValues of the fully connected layer
+                
+                
+            # Update pool layer partials
+            # The pooling layer doesnt have weights, but it is another layer so we need to differentiate to get back to the conv layer
+            # only difference now is that some values are zerod since they didnt contribute to output (they werent the max value)
+            if layer1Name == 'ConvolutionalLayer' and layer2Name == 'PoolingLayer':
+                
+                partialL_Z = AutoDiff_PL(partialL_Z, prevWeights, prevOut, 
+                                         currentLayer.maxIndices, currentLayer.poolSize, currentLayer.output)
+               # print('Pool to Conv')
+            
+            
+            
+            # Update conv layer weights
+            # partialL_Z is now the size of conv layer output
+            if layer1Name == 'image' and layer2Name == 'ConvolutionalLayer':
+                
+                # Get weights of the convolutional layer 
+                prevWeights = currentLayer.weights 
+                
+                # Find partial bias, partial weights
+                # partialL_Z is partial of convolutional output, prevWeights is conv weights, stride is stride, im is input image, last arg is output of conv
+                deltaB, deltaW = AutoDiff_ConvL(partialL_Z, prevWeights, currentLayer.stride, im, currentLayer.outputValues)
+            
+              #  print('Conv to im')
+            
+            
+            
+          
+            
+            # Set previous weifhts
+            # Pool has no weights so dont do it then 
+            if not(layer1Name == 'ConvolutionalLayer' and layer2Name == 'PoolingLayer'):
+                
+                # Avoid putting derivB[-1] since that changes last value of array
+                # layer will only be one when we're at image --> convolutional
+                if layer1 == -1:
+                    layer1 = 0
+                derivB[layer1], derivW[layer1] = deltaB, deltaW
+                prevWeights = currentLayer.weights
+               
+    
+        # Return the output of the classification to check error, and the partial weights, biases
+        return self.layers[-1].output, derivB, derivW
+                
+            
+            
+            
+            
+            
+          
+        
         
         
         
@@ -376,7 +546,7 @@ class SingleLayer(object):
     def __init__(self, inputShape, outputNum):
         self.output = np.ones((outputNum,1))
         self.summedValues = np.ones((outputNum,1))
-        print("Hello There")
+        #print("Hello There")
         
         
 class FullyConnectedLayer(SingleLayer):
@@ -426,6 +596,7 @@ class FullyConnectedLayer(SingleLayer):
         # Output is summedValues pushed through activation
         self.output = sigmoid(self.summedValues)
         
+        
         # Reshape weights back
         self.weights = self.weights.reshape((self.numOutput, self.depth, self.height, self.width))
 
@@ -469,20 +640,11 @@ class ClassificationLayer(SingleLayer):
         
         
                 
-# Sigmoid Activation Function
-def sigmoid(x):
-    sig = 1/(1+np.exp(-x))
-    return sig
-                
+
         
         
-        
-        
-        
-        
-        
-        
-        
+def loss(desired, final):
+    return .5 * np.sum(desired-final)**2
                     
                 
                 

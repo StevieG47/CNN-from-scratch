@@ -17,8 +17,8 @@ file  = gzip.open('mnist.pkl.gz', 'rb')
 trainingData, validationData, testDataOriginal = pickle.load(file, encoding = 'latin') # read data from pickle file
 file.close()
 
-numTraining = 1000 # number of training images to use
-numTesting = 500 # number of test images to use
+numTraining = 100 # number of training images to use
+numTesting = 100 # number of test images to use
 
 trainData = trainingData[0][0:numTraining] # only pick numTraining images from 50000 training images
 trainLabel = trainingData[1][0:numTraining] # corresponding training labels
@@ -71,6 +71,13 @@ test = CNN(inputShape,layers)
 print(' ')
 print('Model Initialized')
 
+# Train Model
+batchSize = 10
+learningRate = 1.5
+numEpochs = 5
+test.train(training,batchSize,learningRate,numEpochs)
+
+
 # Show a single picture with prediction
 def predictNum(net,testData):
     i = np.random.randint(0,len(testData))
@@ -89,5 +96,12 @@ def getAccuracy(net,testData):
         label = testData[i][1]
         prediction = np.argmax(net.forwardPass(im))
         if prediction == label: numCorrect += 1
+        
+        if (i+1) % int(0.1 * len(testData)) == 0:
+            print( '{0}% Completed'.format(int(float(i+1) / len(testData) * 100)))
+    
     print('Accuracy: ',numCorrect/len(testData)*100)
+    
+# Check accuracy
+getAccuracy(test,testing)
 
