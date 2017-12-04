@@ -15,6 +15,7 @@ class CNN(object):
     # Initiate neural network with input size and all layers to be used
     def __init__(self,inputShape,layers):
         
+        
         self.inputShape = inputShape
         
         # Convert layers input to correct layer class
@@ -139,20 +140,23 @@ class CNN(object):
             batchNum = 1
             
             # Loop through batches, backpropogate
+            cn = 0
             for currentBatch in batches:
-                
-                print('Epoch ', epochNum,' Batch ',batchNum, ' of ',len(batches), ' ',
-                      round(currentRun/numTrainingRuns*100,2),'% Done TrainingS')
+                print(' ')
+                print(round(currentRun/numTrainingRuns*100,2),'%')
+                #print('Epoch ', epochNum,' Batch ',batchNum, ' of ',len(batches), ' ',
+                 #     round(currentRun/numTrainingRuns*100,2),'% Done TrainingS')
                 batchNum += 1
                 currentRun +=1
+                cn += 1
             
                 # Updated loss
                 batchLoss = self.updateLoss(currentBatch,learningRate)
                 losses = losses + batchLoss
                # print('Batch Loss: ', batchLoss)
                
-           # meanError.append(round(losses/batchSize,2))
-            print ('Mean Error: ', round(1.0*losses/batchSize,2))
+            meanError.append(round(losses/cn,2))
+            print ('Mean Error: ', meanError)
             epochNum += 1 # move to next epoch
         
         print('Done Training')
@@ -168,9 +172,11 @@ class CNN(object):
         # Initialize batch length
         batchLength = len(batch)
         
+       
         # Loop through each image in the batch
         # batch[0] is the image, batch[1] is the length 10 one hot encoded label
         for image, label in batch:
+       
             
             # Include the depth in image
             im = image.reshape((1,28,28))
@@ -188,9 +194,17 @@ class CNN(object):
             # Same for derivW
             derivB = [nb + db for nb, db in zip(derivB, partialB)]
             derivW = [nw + dw for nw, dw in zip(derivW, partialW)]
-        
+    
+   
         # Get error for last label, final output i batch
-        error = crossELoss(label, finalO)
+        #error = crossELoss(label, finalO)
+        error = crossELoss(label,finalO)
+      #  if error < 5:
+          #  getAccuracy(self,self.testingData)
+            
+        print('Error: ',error)
+     
+
         
         # Make list of layer indices that have weights, for this single block model of conv-->pool-->fc--->classify,
         # wIndex will just be [0,2,3]
@@ -228,6 +242,7 @@ class CNN(object):
         
         # return the error so we can keep track of it
         return error
+        
     
     
     # Backpropogation function
@@ -243,6 +258,8 @@ class CNN(object):
         # Parital Loss / partial Z, where z is the summed values before activation of the final layer
         # Z = w transpose x + bias, the output (yhat) is just sigmoid(z2)
         # So it looks like partialL_Z = (yhat-y) 
+        
+        # partial L/ partial z w/ cross entropy is just yhat-y
         partialL_Z = (prediction - label) #* dSigmoid(self.layers[len(self.layers)-1].summedValues)
         
         # Get layer transition, so layer1 --> layer2
@@ -638,15 +655,30 @@ class ClassificationLayer(SingleLayer):
         
         
         
+def getAccuracy(net,testData):
+    print('Begin Testing')
+    numCorrect = 0
+    for i in range(len(testData)):
+        im = testData[i][0].reshape(1,28,28)
+        label = testData[i][1]
+        prediction = np.argmax(net.forwardPass(im))
+        #print(prediction)
+        if prediction == label: numCorrect += 1
         
+        if (i+1) % int(0.1 * len(testData)) == 0:
+            print( '{0}% Completed'.format(int(float(i+1) / len(testData) * 100)))
+    
+    print('Accuracy: ',numCorrect/len(testData)*100)
         
                 
 
         
         
 def loss(desired, final):
-    return .5 * np.sum(desired-final)**2
-                    
+    return .5 * np.sum(1.0*desired-final)**2
+
+# log(1) = zero so if the predicted probability of the right value in desired
+# is 1 then we have loss of zero
 def crossELoss(desired,final):
     return -np.sum(desired*np.log(final))
                 

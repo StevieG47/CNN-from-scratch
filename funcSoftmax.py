@@ -19,7 +19,8 @@ def dSigmoid(x):
 
 # Softmax function
 def softmax(x):
-    expScores = np.exp(x)
+    maxs = np.amax(x)
+    expScores = np.exp(x-maxs)
     out = expScores / np.sum(expScores, axis = 0, keepdims = True) 
     return out
                 
@@ -31,7 +32,7 @@ def AutoDiff_CL(partialL_Z,prevOut,summedVals):
     
     # partialL_Z is partial Loss / partial summedVals where summed vals 
     # is the Z before activation that leads to yhat, the summedValues of classification layer
-    dB = partialL_Z
+    dB = partialL_Z   
     dW = np.dot(partialL_Z, prevOut.transpose())
 
     return dB, dW, partialL_Z

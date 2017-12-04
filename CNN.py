@@ -15,6 +15,8 @@ class CNN(object):
     # Initiate neural network with input size and all layers to be used
     def __init__(self,inputShape,layers):
         
+        self.errorTrack = []
+        
         self.inputShape = inputShape
         
         # Convert layers input to correct layer class
@@ -191,6 +193,7 @@ class CNN(object):
         
         # Get error for last label, final output i batch
         error = loss(label, finalO)
+        self.errorTrack.append(error)
         
         # Make list of layer indices that have weights, for this single block model of conv-->pool-->fc--->classify,
         # wIndex will just be [0,2,3]
