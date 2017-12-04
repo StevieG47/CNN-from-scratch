@@ -10,15 +10,19 @@ import gzip
 import numpy as np
 import matplotlib.pyplot as plt, matplotlib.image as mpimg
 
-from CNN import *
+# smax True to use softmax method
+# smax False to use MSE method
+smax = 1
+if smax: from CNNSoftmax import *
+else: from CNN import *
 
 #################################---READ DATA---########################################
 file  = gzip.open('mnist.pkl.gz', 'rb')
 trainingData, validationData, testDataOriginal = pickle.load(file, encoding = 'latin') # read data from pickle file
 file.close()
 
-numTraining = 100 # number of training images to use
-numTesting = 100 # number of test images to use
+numTraining = 30000 # number of training images to use
+numTesting = 10000 # number of test images to use
 
 trainData = trainingData[0][0:numTraining] # only pick numTraining images from 50000 training images
 trainLabel = trainingData[1][0:numTraining] # corresponding training labels
@@ -48,7 +52,7 @@ training = [trainData,trainLabel]
 testing = [testData,testLabel]
 training = list(zip(trainData,trainLabel))
 testing = list(zip(testData,testLabel))
-index = 10
+index = 3
 im = training[index][0]
 #plt.imshow(im,cmap='binary') # plot binary plt
 #plt.title(np.where(training[1][index] == 1)[0][0]) # show prediction in title
@@ -90,6 +94,7 @@ def predictNum(net,testData):
     plt.title('Prediction: %i' % prediction) # show prediction in title
     
 def getAccuracy(net,testData):
+    print('Begin Testing')
     numCorrect = 0
     for i in range(len(testData)):
         im = testData[i][0].reshape(1,28,28)
