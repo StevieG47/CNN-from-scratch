@@ -681,7 +681,7 @@ def loss(desired, final):
 # log(1) = zero so if the predicted probability of the right value in desired
 # is 1 then we have loss of zero
 def crossELoss(desired,final):
-    return -np.sum(desired*np.log(final))
+    return -np.sum(desired*np.log(final+.000000000000000000000000000001))
                 
                 
         

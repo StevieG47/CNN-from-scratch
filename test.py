@@ -16,13 +16,16 @@ smax = 1
 if smax: from CNNSoftmax import *
 else: from CNN import *
 
+
+# 71% accuracy on softmax w/ learningRate = .1, numTraining = 30,000, numEpochs = 10, batchSIze = 10
+# This ^ didnt train for the full 30000 though
 #################################---READ DATA---########################################
 file  = gzip.open('mnist.pkl.gz', 'rb')
 trainingData, validationData, testDataOriginal = pickle.load(file, encoding = 'latin') # read data from pickle file
 file.close()
 
-numTraining = 30000 # number of training images to use
-numTesting = 5000 # number of test images to use
+numTraining = 10000 # number of training images to use
+numTesting = 500# number of test images to use
 
 trainData = trainingData[0][0:numTraining] # only pick numTraining images from 50000 training images
 trainLabel = trainingData[1][0:numTraining] # corresponding training labels
@@ -66,7 +69,7 @@ inputShape = (1,x,y)
 layers = [
         {'Convolution': {'filterSize': 5, 'stride': 1, 'numFilters': 20} }, # convolution layer
         {'Pooling': {'poolSize': (2,2)} }, # pooling to reduce computation
-        {'fullyConnected': {'numOutput': 30} }, # full connected layer at the end
+        {'fullyConnected': {'numOutput': 50} }, # full connected layer at the end
         {'outputLayer': {'numClasses': 10} } # 10 classes for digits 0-9
         ]
 
@@ -77,8 +80,8 @@ print('Model Initialized')
 
 # Train Model
 batchSize = 10
-learningRate = .001
-numEpochs = 20
+learningRate = .005
+numEpochs = 3
 test.train(training,batchSize,learningRate,numEpochs)
 
 
@@ -114,4 +117,13 @@ print('Learning Rate: ', learningRate)
 print('Num Training Images: ',numTraining)
 print('Num Epochs: ',numEpochs)
 print('Batch Size: ',batchSize)
+
+def predictCustomIn(net,im):
+    im = im.reshape(1,28,28)
+    #print(net.forwardPass(im))
+    prediction = np.argmax(net.forwardPass(im))
+    #print(net.forwardPass(im)[4])
+    im = im.reshape(28,28)
+    plt.imshow(im,cmap='binary') # plot binary plt
+    plt.title('Prediction: %i' % prediction) # show prediction in title
 

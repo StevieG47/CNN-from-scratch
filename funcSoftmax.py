@@ -7,16 +7,30 @@ Created on Sat Dec  2 13:57:10 2017
 """
 import numpy as np
 
+
+
+# Here we define the ReLU function.
+def relu(x):
+    """ReLU returns 1 if x>0, else 0."""
+    return np.maximum(0,x)
+    
 # Sigmoid Activation Function
 def sigmoid(x):
-    sig = 1/(1+np.exp(-x))
-    return sig
+    
+    #sig = 1/(1+np.exp(-x))
+    #return sig
+    return np.maximum(0,x) # try using relu
 
 # Derivative of Sigmoid
 def dSigmoid(x):
-    dsig  = sigmoid(x) * (1-sigmoid(x))
-    return dsig
-
+    #dsig  = sigmoid(x) * (1-sigmoid(x))
+    #return dsig
+    
+    # Try using relu
+    x[x<=0] = 0
+    x[x>0] = 1
+    return x
+    
 # Softmax function
 def softmax(x):
     maxs = np.amax(x)
