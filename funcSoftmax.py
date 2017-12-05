@@ -106,7 +106,8 @@ def AutoDiff_PL(partialL_Z, prevWeights, prevOut, maxIndices, poolSize, output):
     
     # Get derivative of sigmoid(poolOutput). This is partial activation/ partial z
     # since the output of a layer a = sigmoid(z)
-    sp = dSigmoid(output)
+    #sp = dSigmoid(output)
+    sp = 1
     
     # Set partialL/partialZ where Z is the output of pool layer before activation
     # We have FC_out = Weight_fc.transpose * poolOut + biasFc

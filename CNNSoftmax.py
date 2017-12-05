@@ -142,7 +142,8 @@ class CNN(object):
             # Loop through batches, backpropogate
             cn = 0
             for currentBatch in batches:
-                print(' ')
+                #print(' ')
+                #if (currentRun/numTrainingRuns*100%10 == 0):
                 print(round(currentRun/numTrainingRuns*100,2),'%')
                 #print('Epoch ', epochNum,' Batch ',batchNum, ' of ',len(batches), ' ',
                  #     round(currentRun/numTrainingRuns*100,2),'% Done TrainingS')
@@ -202,7 +203,7 @@ class CNN(object):
       #  if error < 5:
           #  getAccuracy(self,self.testingData)
             
-        print('Error: ',error)
+       # print('Error: ',error)
      
 
         
