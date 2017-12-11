@@ -47,11 +47,15 @@ def AutoDiff_FC(partialL_Z, prevWeights, prevOut, summedValues):
     partialLZ = np.dot(prevWeights.transpose(),partialL_Z) * deltaSig
     
     # Define partial L partial Bias
+    # z = w.T * x + b so partialZ/partialB = 1
     dB = partialLZ
     
     # Define partial L partial Weight
     d0, d1, d2 = prevOut.shape
     prevOut = prevOut.reshape((1,d0*d1*d2))
+    
+     # Define partial L partial Weight
+     # same thing where z = w.T *x + b so partialZ/partialW is x, the previous output
     dW = np.dot(partialLZ,prevOut)
     dW = dW.reshape((partialLZ.shape[0], d0,d1,d2))
 
@@ -66,8 +70,7 @@ def AutoDiff_PL(partialL_Z, prevWeights, prevOut, maxIndices, poolSize, output):
     # Previous weights are weights from fully connected layer
     # prevOut is output of the convolutional layer
     # maxIndicies are the indices of the max values from pooling, remember we kept track of those
-    # poolSize is the same, 2x2, output is the output of the fully connected layer
-    # output is the output of the pooling layer
+    # poolSize is the same, 2x2, output is the output of the pooling
     
     # Get the shape of the output
     # The output of the pooling layer (right now with mnist data) is 20,12,12

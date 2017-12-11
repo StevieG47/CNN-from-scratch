@@ -50,7 +50,6 @@ class CNN(object):
         # Define layers
         self.layers = CNNLayers
         
-        # TODO: add shapes of weights for each layer, shapes of biases
         # Loop through layers and get the weight shapes for each
         # Pooling layer doesnt have weights that just makes data smaller for easier computation
         self.weightShapes = [currentLayer.weights.shape for currentLayer in self.layers if type(currentLayer).__name__ != 'PoolingLayer']
@@ -299,7 +298,7 @@ class CNN(object):
                 
             # Update pool layer partials
             # The pooling layer doesnt have weights, but it is another layer so we need to differentiate to get back to the conv layer
-            # only difference now is that some values are zerod since they didnt contribute to output (they werent the max value)
+            # only difference now is that some values are zeros since they didnt contribute to output (they werent the max value)
             if layer1Name == 'ConvolutionalLayer' and layer2Name == 'PoolingLayer':
                 
                 partialL_Z = AutoDiff_PL(partialL_Z, prevWeights, prevOut, 
@@ -325,7 +324,7 @@ class CNN(object):
             
           
             
-            # Set previous weifhts
+            # Set previous weights
             # Pool has no weights so dont do it then 
             if not(layer1Name == 'ConvolutionalLayer' and layer2Name == 'PoolingLayer'):
                 
@@ -542,7 +541,7 @@ class PoolingLayer(object):
         self.maxIndices = self.maxIndices.reshape((self.depth, self.outputHeight, self.outputWidth, 2))
                 
                 
-# cBase lass to be used for the fully connected layer and classification layer 
+# class to be used for the fully connected layer and classification layer 
 class SingleLayer(object):
     
     # Define summed values (summed wT*x at a node) and output (summed values after activation)
@@ -637,15 +636,7 @@ class ClassificationLayer(SingleLayer):
         
         
         
-        
-        
-        
-        
-        
-                
-
-        
-        
+# MSE Error
 def loss(desired, final):
     return .5 * np.sum(desired-final)**2
                     
