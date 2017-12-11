@@ -15,7 +15,7 @@ class CNN(object):
     # Initiate neural network with input size and all layers to be used
     def __init__(self,inputShape,layers):
         
-        
+        # Input shape of the image, 1x28x28 for mnist
         self.inputShape = inputShape
         
         # Convert layers input to correct layer class
@@ -24,7 +24,7 @@ class CNN(object):
                        'fullyConnected' : FullyConnectedLayer,
                        'outputLayer' : ClassificationLayer}
         
-        CNNLayers = []
+        CNNLayers = [] # layers of the model
         shape = inputShape
         for i in range(len(layers)):
             
@@ -49,33 +49,34 @@ class CNN(object):
         # Define layers
         self.layers = CNNLayers
         
-        # TODO: add shapes of weights for each layer, shapes of biases
         # Loop through layers and get the weight shapes for each
-        # Pooling layer doesnt have weights that just makes data smaller for easier computation
+        # Pooling layer doesnt have weights that just makes conv output smaller for easier computation
         self.weightShapes = [currentLayer.weights.shape for currentLayer in self.layers if type(currentLayer).__name__ != 'PoolingLayer']
         self.biasShapes = [currentLayer.biases.shape for currentLayer in self.layers if type(currentLayer).__name__ != 'PoolingLayer']
         
+        
+    # Forward pass of the model, take input data and output probabilities
     def forwardPass(self, im):
         
         # Define previous Output var to be used when moving through layers
         previousOutput = im
         
-        # Do a forward pass thorugh 
+        # Do a forward pass through layers 
         for currentLayer in self.layers:
             
-            # Set input as the previous output
+            # Set input to current layer as the previous layer output
             inputData = previousOutput
             
             # Get name of current class
-           # print(currentLayer)
+            # print(currentLayer)
             className = type(currentLayer).__name__
-           # print(className)
+            # print(className)
             
             # If convolutional layer, do convolution
             if className == 'ConvolutionalLayer':
                 #print('Convoluting')
                 currentLayer.convolution(inputData)
-                #print('Done Convulting')
+                #print('Done Convolulting')
                 #print(currentLayer.output[0][10][10])
                 
             # If pooling layer, do pooling
@@ -101,11 +102,13 @@ class CNN(object):
             # Get output, set it to previous Output var
             previousOutput = currentLayer.output
             
+        # output of softmax
         finalOutput = previousOutput
         return finalOutput
     
     
     # Use gradient descent to train network
+    # We will do forward pass, backpropogation, update weights, repeat
     def train(self,trainingData, batchSize, learningRate, numEpochs, lamdaVal = None):
         
         # Define training size
@@ -151,12 +154,12 @@ class CNN(object):
                 currentRun +=1
                 cn += 1
             
-                # Updated loss
+                # Updated loss/update weights for the current batch
                 batchLoss = self.updateLoss(currentBatch,learningRate)
-                losses = losses + batchLoss
+                losses = losses + batchLoss # add to the cumulative loss for the epoch
                # print('Batch Loss: ', batchLoss)
                
-            meanError.append(round(losses/cn,2))
+            meanError.append(round(losses/cn,2)) # mean error for the epoch
             print ('Mean Error: ', meanError)
             epochNum += 1 # move to next epoch
         
@@ -179,7 +182,7 @@ class CNN(object):
         for image, label in batch:
        
             
-            # Include the depth in image
+            # Include the depth in image (reshape from 28x28 to 1x28x28)
             im = image.reshape((1,28,28))
             
             # Do forward pass to update self.layers (compute outputs), variable flag doesnt matter
@@ -189,26 +192,26 @@ class CNN(object):
             finalO, partialB, partialW = self.backpropogate(im,label)
             
             # derivB is list with biases for convolutional layer, fully connected layer, and classify layer
-            # partialB is the partialL/partialBias values for all the same layers, is is also
+            # partialB is the partialL/partialBias values for all the same layers, it is also
             # a list with each element being the same shape
-            # For each batch continously add the partialL/partialBias to the derivB term
+            # For each image in the batch continously add the partialL/partialBias to the derivB term
             # Same for derivW
+            # Will use an average partialL/partialW and average partialL/partialB to update weights
             derivB = [nb + db for nb, db in zip(derivB, partialB)]
             derivW = [nw + dw for nw, dw in zip(derivW, partialW)]
     
    
         # Get error for last label, final output i batch
-        #error = crossELoss(label, finalO)
-        error = crossELoss(label,finalO)
+        error = crossELoss(label,finalO) # use cross entropy error
       #  if error < 5:
           #  getAccuracy(self,self.testingData)
             
-       # print('Error: ',error)
+        print('Error: ',error)
      
 
         
         # Make list of layer indices that have weights, for this single block model of conv-->pool-->fc--->classify,
-        # wIndex will just be [0,2,3]
+        # wIndex will just be [0,2,3] since conv, fc, classify have weights
         ind = 0
         
         # list of indices of layers that have weights
@@ -226,7 +229,7 @@ class CNN(object):
             # increase layer indices we're on
             ind += 1
         
-        
+        # Update weights for conv, fc, and output layer using the partials from the batch
         for iterationNum, (lnw, lnb) in enumerate(zip(derivW, derivB)):
             
             # iterationNum will be 0,1,2 and our wIndex (for this single block method) is 
@@ -234,10 +237,10 @@ class CNN(object):
             # layer[0],layer[2],layer[3], skipping pooling layer
             layer = self.layers[wIndex[iterationNum]]
             
-            # Update current layers weights with mean partialW
-            # We had gotten the derivW by continusouly adding to derivW for each batch, so
-            # divide by the number of batches to get the mean. 
-            # Move in the negative gradient deirection to move toward loss minimum        
+            # Update current layer's weights with mean partialW
+            # We had gotten the derivW by continusouly adding to derivW for each image in batch, so
+            # divide by the number of images in the to get the mean. 
+            # Move in the negative gradient direction to move toward loss minimum        
             layer.weights -= LearningRate * lnw / batchLength
             layer.biases -= LearningRate * lnb / batchLength
         
@@ -246,24 +249,25 @@ class CNN(object):
         
     
     
-    # Backpropogation function
+    # Backpropogation function, use forward pass values to get gradients
     def backpropogate(self,im,label):
         
         # Initialize derivatives using list of weight/bias shapes for each layer
+        # partial derivs have to be same shape as weights/biases
         derivW = [np.zeros(shape) for shape in self.weightShapes]
         derivB = [np.zeros(shape) for shape in self.biasShapes]
         
-        # Prediction is the output vector of the final layer
+        # Prediction is the output vector of the final layer (softmax)
         prediction = self.layers[len(self.layers)-1].output
         
         # Parital Loss / partial Z, where z is the summed values before activation of the final layer
-        # Z = w transpose x + bias, the output (yhat) is just sigmoid(z2)
-        # So it looks like partialL_Z = (yhat-y) 
+        # Z = w transpose x + bias, the output (yhat) is just activation(z2)
+        # So it looks like partialL_Z = (yhat-y) <-- true for cross entropy loss function w/ softmax
         
-        # partial L/ partial z w/ cross entropy is just yhat-y
-        partialL_Z = (prediction - label) #* dSigmoid(self.layers[len(self.layers)-1].summedValues)
+        # partial L/partial_z  
+        partialL_Z = (prediction - label) 
         
-        # Get layer transition, so layer1 --> layer2
+        # Get layer transition, so layerPrev --> layerCurrent, start from back so fc --> classify
         # Loop through the transitions and get partial derivatives 
         # Loop ends at layerNum = 0th layer (convolution layer)
         # classify layer is layers[3], fully connected is layers[2], pooling is layers[1], convolution is layers[0], the raw image is before that
@@ -294,12 +298,15 @@ class CNN(object):
             
             
             # Find Derivatives based on layer transition
+            
             # Update classification layer weights
             if layer1Name == 'FullyConnectedLayer' and layer2Name == 'ClassificationLayer':
                 
+                # find partials for cl layer w/ partialL/partialZ, summedVals z for output of cl layer, and input to cl
                 deltaB, deltaW, partialL_Z= AutoDiff_CL(partialL_Z,prevOut,
-                                                        currentLayer.summedValues)
+                                                        currentLayer.summedValues) 
                # print('Class to Full')
+
 
             # Update weights of fully connected layer
             if layer1Name == 'PoolingLayer' and layer2Name == 'FullyConnectedLayer':
@@ -314,9 +321,10 @@ class CNN(object):
                 
             # Update pool layer partials
             # The pooling layer doesnt have weights, but it is another layer so we need to differentiate to get back to the conv layer
-            # only difference now is that some values are zerod since they didnt contribute to output (they werent the max value)
+            # only difference now is that some values are zeros since they didnt contribute to output (they werent the max value)
             if layer1Name == 'ConvolutionalLayer' and layer2Name == 'PoolingLayer':
                 
+                # prevWeights are weights of fc, partialL_Z is wrt fc layer, output is pool output
                 partialL_Z = AutoDiff_PL(partialL_Z, prevWeights, prevOut, 
                                          currentLayer.maxIndices, currentLayer.poolSize, currentLayer.output)
                # print('Pool to Conv')
@@ -330,7 +338,7 @@ class CNN(object):
                 # Get weights of the convolutional layer 
                 prevWeights = currentLayer.weights 
                 
-                # Find partial bias, partial weights
+                # Find partial bias, partial weights of conv
                 # partialL_Z is partial of convolutional output, prevWeights is conv weights, stride is stride, im is input image, last arg is output of conv
                 deltaB, deltaW = AutoDiff_ConvL(partialL_Z, prevWeights, currentLayer.stride, im, currentLayer.outputValues)
             
@@ -340,37 +348,30 @@ class CNN(object):
             
           
             
-            # Set previous weifhts
+            # Set previous weights
             # Pool has no weights so dont do it then 
             if not(layer1Name == 'ConvolutionalLayer' and layer2Name == 'PoolingLayer'):
                 
                 # Avoid putting derivB[-1] since that changes last value of array
-                # layer will only be one when we're at image --> convolutional
+                # layer will only be one when we're at image --> convolutional transition
                 if layer1 == -1:
                     layer1 = 0
+                
+                # Add the partials we found to list of partials
                 derivB[layer1], derivW[layer1] = deltaB, deltaW
-                prevWeights = currentLayer.weights
+                prevWeights = currentLayer.weights # set weights
                
     
         # Return the output of the classification to check error, and the partial weights, biases
         return self.layers[-1].output, derivB, derivW
+
+# END OF CNN MODEL CLASS
                 
-            
-            
-            
-            
-            
-          
-        
-        
-        
-        
-            
-            
-                
-            
+    
+# Class for convolutional layer            
 class ConvolutionalLayer(object):
     
+    # parameters are shape of image, filter size, number of filters, stride when convoluting
     def __init__(self,inputShape,filterSize,numFilters,stride):
         
         # Get height, width, depth of image
@@ -382,12 +383,12 @@ class ConvolutionalLayer(object):
         self.filterSize = filterSize
         self.stride = stride
         self.numFilters = numFilters
-        self.padding = 0 # area outside the input is padded with zeros
+        self.padding = 0 # area outside the input is padded with zeros (for mnist it prob wont matter since the images pretty much have a padding of zeros already)
         
         # Initialize random weights and biases
         
         # We will slide/convolve each filter/weight across the width/height of the image
-        # Will compute dot products between filter and input at the position in the image
+        # Will compute element wise multiplication between filter and input at the position in the image
         # This will produce 2d map that gives responses of a filter at every position
         # The network will learn filters that activate when they see some feature like an edge or curve
         # Each filter will produce a separate 2d map
@@ -399,14 +400,15 @@ class ConvolutionalLayer(object):
         # must be 3, since this is the depth of the input volume.
         
         # With MNIST the depth is 1, so we have 20 5x5 filters that will slide across image
-        # the output will be , since each filter outputs a 5x5x1. 
+        # the output will be 24x24x20, since each filter outputs a 5x5x1, padding is zero, and stride is 1 (see below for equation)
         
+        # Randomly initialize weights, this means some initial conditions will be better than others
         # randn returns samples from standard normal distribution
         self.weights = np.random.randn(numFilters, self.depth, filterSize, filterSize) # num filter, num of channels in image, filtr size
         self.biases = np.random.rand(self.numFilters,1) # bias for each filter is just 1 number, will add that numeber after summing weight values
         
         
-        # Set output with height and width of image H1, W1, size of filter F, padding P, stride S
+        # Set output with height and width of image H1, W1, size of filter F, padding P, stride S, num filters K
         # Output dimension is W2xH2xD2 (widthxheightxdepth) where:
         # W2 = (W1 - F + 2P)/S + 1
         # H2 = (H1 - F + 2P)/S + 1
@@ -415,8 +417,8 @@ class ConvolutionalLayer(object):
         self.outputCols = int ( (self.width - self.filterSize + 2*self.padding)/self.stride + 1 )
     
         # Set output
-        self.output = np.zeros((self.numFilters, self.outputRows, self.outputCols))
-        self.outputValues = np.zeros((self.numFilters, self.outputRows, self.outputCols)) # values before activation
+        self.output = np.zeros((self.numFilters, self.outputRows, self.outputCols)) # make it 20x24x24 (keep shape consistent through layers like depthxwidthxheight)
+        self.outputValues = np.zeros((self.numFilters, self.outputRows, self.outputCols)) # values before activation, z
         
         print('Convolutional Layer Initialized')
 
@@ -427,7 +429,7 @@ class ConvolutionalLayer(object):
         self.outputValues = self.outputValues.reshape((self.numFilters,self.outputRows * self.outputCols))
         self.output = self.output.reshape((self.numFilters,self.outputRows * self.outputCols))
         
-        # Get length of flattened output value. This is the total number of values in the output of convolution
+        # Get length of flattened output value. This is the total number of values in the output of one filter's convolution
         outputLength = self.outputRows * self.outputCols
         
         # Loop through all filters
@@ -438,7 +440,7 @@ class ConvolutionalLayer(object):
             # Loop through sliding the filter across the image, loop until every value of outputLength is found
             for j in range(outputLength):
                 
-                # Take dot product of filter with part of image it's on
+                # Take element multiplication of filter with part of image it's on
                 # weights[i] is a 1x5x5 since filterSize is 5 and depth is 1
                 # inputData[: , row:row+self.filterSize, col:col+self.filterSize] is also a 1x5x5 since depth is 1, and were specifying rows and columns to be a:a+filterSize
                 # Element-wise multiplication is done with *
@@ -450,7 +452,7 @@ class ConvolutionalLayer(object):
                 # Add the bias, outputValues has values before activation
                 self.outputValues[i][j] = sumValue + self.biases[i]
                 
-                # Activation function
+                # Activation function for output of layer
                 self.output[i][j] = sigmoid(self.outputValues[i][j])
                 
                 # Move horizontally across row
@@ -464,9 +466,12 @@ class ConvolutionalLayer(object):
         # Reshape output back into correct shape
         self.outputValues = self.outputValues.reshape((self.numFilters, self.outputRows, self.outputCols))
         self.output = self.output.reshape((self.numFilters, self.outputRows, self.outputCols))
-        
+
+
+# Class for pooling layer        
 class PoolingLayer(object):
     
+    # Initialize with shape of input (output of conv layer) and pool size, 2x2
     def __init__(self, inputShape, poolSize):
         
         # Get height, width, depth of input
@@ -474,15 +479,15 @@ class PoolingLayer(object):
         self.height = inputShape[1]
         self.width = inputShape[2]
         
-        # Define pool size and strid
-        self.poolSize = poolSize
-        self.stride = 2
+        # Define pool size and stride
+        self.poolSize = poolSize 
+        self.stride = 2 # always use stride of 2, so this isnt a parameter to adjust
         
-        # Pooling layer takes in a volume of w1xh1xd1 (width,height,depth)
+        # Pooling layer takes in a volume of w1xh1xd1 (width,height,depth)  or dxwxh in our case
         # hyperparameters for pooling are poolSize F and stride S
         # Outputs a volume W2xH2xD2 where:
         # W2 = (W1-F)/S + 1
-        # H2 = (H1-F)/W + 1
+        # H2 = (H1-F)/S + 1
         # D2 = D1
         
         # Only 2 common seen variations, poolSize = 3, stride = 2, and poolSize = 2, stride = 2
@@ -502,7 +507,7 @@ class PoolingLayer(object):
         # Set max indicies matrix, because "during the forward pass of a pooling layer it is 
         # common to keep track of the index of the max activation (sometimes also called the switches)
         # so that gradient routing is efficient during backpropagation."
-        self.maxIndices = np.empty((self.depth, self.outputHeight, self.outputWidth,2)) # coordinates are row, column so 2
+        self.maxIndices = np.empty((self.depth, self.outputHeight, self.outputWidth,2)) # indices coordinates are row, column so 2
         
         print('Pooling Layer Initialized')
         
@@ -516,7 +521,7 @@ class PoolingLayer(object):
         self.output = self.output.reshape((self.depth, self.Length))
         self.maxIndices = self.maxIndices.reshape((self.depth,self.Length,2)) 
         
-        # Loop through each filter (input from convolution is numFilters x imshape x imshape)
+        # Loop through each filter (input from convolution output is numFilters x 24 x 24), with a padding of 2 the original 28 shape wouldve been kept
         for i in range(self.depth):
             row = 0
             col = 0
@@ -524,7 +529,7 @@ class PoolingLayer(object):
             # Loop through each value of Length, loop until every value of height,width is found
             for j in range(self.Length-1):
                 
-                # Define section pool filter is over
+                # Define section of input the pool filter is over
                 section = inputData[i][row:row + self.poolSize[0], col:col + self.poolSize[0]]
                 
                 # Get the max value of the section, set output data
@@ -537,9 +542,9 @@ class PoolingLayer(object):
                 if len(maxIndex[0]) > 1:
                     maxIndex = [maxIndex[0][0], maxIndex[1][0]]
                 
-                # maxIndex is just indices of the current section, not the inputData, so 
+                # maxIndex is just indices of the current section (that the filter is over), not the inputData, so 
                 # add row, col to get the actual indices
-                maxIndex = int(maxIndex[0]) + row, int(maxIndex[1]) + col
+                maxIndex = int(maxIndex[0]) + row, int(maxIndex[1]) + col # sometimes theres an error here idk why
                 
                 # Update max indices
                 self.maxIndices[i][j] = maxIndex
@@ -557,7 +562,7 @@ class PoolingLayer(object):
         self.maxIndices = self.maxIndices.reshape((self.depth, self.outputHeight, self.outputWidth, 2))
                 
                 
-# cBase lass to be used for the fully connected layer and classification layer 
+# class to be used for the fully connected layer and classification layer 
 class SingleLayer(object):
     
     # Define summed values (summed wT*x at a node) and output (summed values after activation)
@@ -566,15 +571,16 @@ class SingleLayer(object):
         self.summedValues = np.ones((outputNum,1))
         #print("Hello There")
         
-        
+# Class for fc layer, output of pool into this       
 class FullyConnectedLayer(SingleLayer):
     
     def __init__(self,inputShape, numOutput):
         
         # Use the base class Single Layer to initialize the input and output
        # super(SingleLayer,self).__init__(inputShape, numOutput)
-        super(SingleLayer,self).__init__()
+        super(SingleLayer,self).__init__() # 
         
+        # output/z values are flat array
         self.output = np.ones((numOutput,1))
         self.summedValues = np.ones((numOutput,1))
         
@@ -618,6 +624,7 @@ class FullyConnectedLayer(SingleLayer):
         # Reshape weights back
         self.weights = self.weights.reshape((self.numOutput, self.depth, self.height, self.width))
 
+# CL layer, output probabilities of each class
 class ClassificationLayer(SingleLayer):
     
     def __init__(self, inputShape, numClasses):
@@ -627,6 +634,7 @@ class ClassificationLayer(SingleLayer):
        # super(SingleLayer,self)._init_(inputShape, numClasses)
         super(SingleLayer,self).__init__()
         
+        # output/z values 10x1 since there are 10 classes
         self.output = np.ones((numClasses,1))
         self.summedValues = np.ones((numClasses,1))
         
@@ -647,7 +655,7 @@ class ClassificationLayer(SingleLayer):
         self.summedValues = np.dot(self.weights,data) + self.biases
         
         # Output is summed values through activation
-        #self.output = sigmoid(self.summedValues)
+        # activation is softmax
         self.output = softmax(self.summedValues)
         
         
@@ -655,7 +663,7 @@ class ClassificationLayer(SingleLayer):
         
         
         
-        
+#    check accuracy, not using this here   
 def getAccuracy(net,testData):
     print('Begin Testing')
     numCorrect = 0
@@ -670,11 +678,8 @@ def getAccuracy(net,testData):
             print( '{0}% Completed'.format(int(float(i+1) / len(testData) * 100)))
     
     print('Accuracy: ',numCorrect/len(testData)*100)
-        
-                
-
-        
-        
+      
+# Loss functions: MSE/Cross Entropy    
 def loss(desired, final):
     return .5 * np.sum(1.0*desired-final)**2
 

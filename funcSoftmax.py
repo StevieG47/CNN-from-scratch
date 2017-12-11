@@ -9,27 +9,27 @@ import numpy as np
 
 
 
-# Here we define the ReLU function.
+# relu activation
 def relu(x):
-    """ReLU returns 1 if x>0, else 0."""
+    # ReLU returns 1 if x>0, else 0
     return np.maximum(0,x)
     
 # Sigmoid Activation Function
 def sigmoid(x):
     
-    #sig = 1/(1+np.exp(-x))
-    #return sig
-    return np.maximum(0,x) # try using relu
+    sig = 1/(1+np.exp(-x))
+    return sig
+    #return np.maximum(0,x) # try using relu
 
 # Derivative of Sigmoid
 def dSigmoid(x):
-    #dsig  = sigmoid(x) * (1-sigmoid(x))
-    #return dsig
+    dsig  = sigmoid(x) * (1-sigmoid(x))
+    return dsig
     
     # Try using relu
-    x[x<=0] = 0
-    x[x>0] = 1
-    return x
+    #x[x<=0] = 0
+    #x[x>0] = 1
+    #return x
     
 # Softmax function
 def softmax(x):
@@ -39,15 +39,19 @@ def softmax(x):
     return out
                 
         
+
 # Backpropogation functions
     
 # Fully Connected to Classify
 def AutoDiff_CL(partialL_Z,prevOut,summedVals):
     
     # partialL_Z is partial Loss / partial summedVals where summed vals 
-    # is the Z before activation that leads to yhat, the summedValues of classification layer
+    # is the Z before activation that leads to yhat, or the summedValues of classification layer
     dB = partialL_Z   
-    dW = np.dot(partialL_Z, prevOut.transpose())
+    
+    # Know z = w transpose x + b, x is output of previous layer
+    # dW = partialL/partialW = partialL/partialZ * partial Z/partialW = (yhat-y)* x
+    dW = np.dot(partialL_Z, prevOut.transpose()) 
 
     return dB, dW, partialL_Z
 
@@ -63,14 +67,16 @@ def AutoDiff_FC(partialL_Z, prevWeights, prevOut, summedValues):
     # is equal to pL/pyhat * pyhat/pz2 * pz2/pa1 * pa1/pz1
     # yhat is prediction from output, z2 is summedVals of classify layer, a1 is output of fully connected
     # z1 is summed vals of fully connected. a1 = sigmoid (z1)
-    # partial z2 partial a1 is just W2 since z2 = W2.transpose*a1 + b2
-    # The partialL_Z inputted to the function is partial L partial Z2
+    # partial z2 /partial a1 is just W2 since z2 = W2.transpose*a1 + b2
+    # The partialL_Z inputted to this function is partial L partial Z2
     partialLZ = np.dot(prevWeights.transpose(),partialL_Z) * deltaSig
     
+    # z = w.T * x + b so partialZ/partialB = 1
     # Define partial L partial Bias
     dB = partialLZ
     
     # Define partial L partial Weight
+    # same thing where z = w.T *x + b so partialZ/partialW is x, the previous output
     d0, d1, d2 = prevOut.shape
     prevOut = prevOut.reshape((1,d0*d1*d2))
     dW = np.dot(partialLZ,prevOut)
@@ -87,13 +93,12 @@ def AutoDiff_PL(partialL_Z, prevWeights, prevOut, maxIndices, poolSize, output):
     # Previous weights are weights from fully connected layer
     # prevOut is output of the convolutional layer
     # maxIndicies are the indices of the max values from pooling, remember we kept track of those
-    # poolSize is the same, 2x2, output is the output of the fully connected layer
-    # output is the output of the pooling layer
+    # poolSize is the same, 2x2, output is the output of the pooling
     
     # Get the shape of the output
     # The output of the pooling layer (right now with mnist data) is 20,12,12
     # Remember there were 20 filters with 5x5 filter size so the output of convolution was 
-    # 20,24,24 (20 deep, and the windows size is 28(imsize) - 4)
+    # 20,24,24 (20 deep, and the windows size is 28(the imsize) - 4)
     
     # So yea input to pooling was 20x24x24, it took 2x2 sections and returned 1 value for each section
     # So 24 * 24 is 576 total values, 576/4 is 144, so our window was changed from 24x24 to 12x12
@@ -106,7 +111,7 @@ def AutoDiff_PL(partialL_Z, prevWeights, prevOut, maxIndices, poolSize, output):
     # shape as the output of pooling, and there are 30 of them
     a,b,c,d = prevWeights.shape
     
-    # Reshape to flatten the volume of values into one long array, sot he weights goes from 
+    # Reshape to flatten the volume of values into one long array, so the weights go from 
     # Thirty 20x12x12 volumes to a 30 x 2880 matrix, each weight is a row
     prevWeights = prevWeights.reshape((a,b*c*d))
     
@@ -115,21 +120,19 @@ def AutoDiff_PL(partialL_Z, prevWeights, prevOut, maxIndices, poolSize, output):
     # Which leads to the 30x1 output of fully connected layer
     output = output.reshape((x*y*z,1))
     
-    # Max indices whape was 20x12x12x2, flatten the windows to make it 20x144x2
+    # Max indices shape was 20x12x12x2, flatten the windows to make it 20x144x2
     maxIndices = maxIndices.reshape((x,y*z,2))
     
     # Get derivative of sigmoid(poolOutput). This is partial activation/ partial z
-    # since the output of a layer a = sigmoid(z)
+    # since the output of a layer is usually: a = sigmoid(z)
     #sp = dSigmoid(output)
-    sp = 1
+    sp = 1 # yea we dont actually put pooling output through an activation so no dSigmoid
     
-    # Set partialL/partialZ where Z is the output of pool layer before activation
-    # We have FC_out = Weight_fc.transpose * poolOut + biasFc
+    # Set partialL/partialZ where Z is the output of pool layer 
+    # We have Z_fc = Weight_fc.transpose * poolOut + biasFc
     # So partial L/partialZ = partialL/partialZ_fc * partialZ_fc/partialZ_pool
-    # since partialZ_fc/partialZ_pool = partialZ_fc/partialOutputpool * partialOutputpool/partialZ_pool
-    # and outputpool = activation(z_pool)
-    # so we do Weights_fc trapnspose * partialL/partialZ_fc * partialZ_fc/partialpoolOut * partialpoolOut/partialZ_pool
-    partialL_Z = np.dot(prevWeights.transpose(),partialL_Z) * sp
+    # so we do Weights_fc trapnspose * partialL/partialZ_fc 
+    partialL_Z = np.dot(prevWeights.transpose(),partialL_Z) * sp # remember the pool has no activation so those notes are great but there is only one output of pool, no separate z/a for it
     
     # Flatten the partial and the pool output to 20x144, so keep depth, flatten length width window
     partialL_Z = partialL_Z.reshape((x,y*z))
@@ -138,7 +141,7 @@ def AutoDiff_PL(partialL_Z, prevWeights, prevOut, maxIndices, poolSize, output):
     # Get shape of convolutional layer output, 20x24x24
     depth, height, width = prevOut.shape
     
-    # Initialize partial L/partialConvout. Needs to be same shape as conv output
+    # Initialize partial L/partialConvOut. Needs to be same shape as conv output since this will be new partialL/partialZ
     partialNew = np.zeros((depth, height, width))
     
     # Loop through every filter
@@ -156,7 +159,7 @@ def AutoDiff_PL(partialL_Z, prevWeights, prevOut, maxIndices, poolSize, output):
             section = prevOut[d][row:row + poolSize[0], col:col + poolSize[0]]
             
             # Get partial values for the current section
-            # output of pool to get max val of this section, for the max val (or vals) of this section,
+            # use output of pool to get max val of this section, for the max val (or vals) of this section,
             # set its partialL value to partialL_Zpool of outputPool layer (since this is part of the poolOutput)
             partialPool = getPartialSec(output[d][i], partialL_Z[d][i], section)
             
@@ -171,12 +174,12 @@ def AutoDiff_PL(partialL_Z, prevWeights, prevOut, maxIndices, poolSize, output):
                 col = 0 # go back to left of conv output
                 row += poolSize[1] # move down
     
-    # Return the partial, which has zero values for vals that werent the max of the section
+    # Return the partial, which has zero values for vals that werent the max of the section. THis is partialL/partialConvOut
     return partialNew
 
 def AutoDiff_ConvL(partialL_Z, prevWeights, stride, im, summedValues):
    #  partialL_Z is partial of convolutional output, prevWeights is conv weights, 
-   # stride is stride, im is input image, summedVals is output of conv
+   # stride is stride, im is input image, summedVals is z of conv
    
    # Weights are 20x1x5x5
     numFilters, depth, filterSize, filterSize = prevWeights.shape
@@ -185,7 +188,7 @@ def AutoDiff_ConvL(partialL_Z, prevWeights, stride, im, summedValues):
     deltaB = np.zeros((numFilters,1))
     deltaW = np.zeros((prevWeights.shape))
     
-    # Get number of vals in conv output, the height, width output (which has depth d), 
+    # Get number of vals in conv window output, the height, width output (which has depth d), 
     # conv output is 20,24,24
     convOutNum = (partialL_Z.shape[1]) * (partialL_Z.shape[2])
 
@@ -199,7 +202,7 @@ def AutoDiff_ConvL(partialL_Z, prevWeights, stride, im, summedValues):
         row = 0
         col = 0
         
-        # Loop thorough every value of conv output (for this filter i)
+        # Loop through every value of conv output (for this filter i)
         for j in range(convOutNum):
             
             # section of image for which the filter is currently over
@@ -210,7 +213,7 @@ def AutoDiff_ConvL(partialL_Z, prevWeights, stride, im, summedValues):
             # at [i][j] (so map output value that came from current section).
             # convOut = Weight_conv transpose * image + bias, so partial convOut/partial Weight_conv
             # is equal to image. So partialL/partialWeightconv = partialL/partialConvout * partialCOnvout/partialW_conv
-            # which equals = partialL_Z * sectionOfImage
+            # which equals = partialL_Z * sectionOfImage, since partialCOnvout/partialW_conv = image
             deltaW[i] += sec * partialL_Z[i][j]
             
             # With convOut = Weight_conv transpose * image + bias, partial Convout/partial bias
@@ -251,9 +254,10 @@ def getPartialSec(val, partialL_Z, section):
         # Get value of ith number in section
         num = section[i]
         
-        # 3 values in each section were not used to their partial derivatives will be zero
+        # 3 values in each section were not used in poolin outout so their partial derivatives will be zero
         # 1 value was used so the partial derivative from pool output was from that value so 
         # set it equal to the corresponding partial from pool output
+      
         # If it's less than the max val of the section
         if num < val:
             
