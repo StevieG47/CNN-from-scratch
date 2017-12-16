@@ -63,7 +63,7 @@ def AutoDiff_FC(partialL_Z, prevWeights, prevOut, summedValues):
     # partial a1 partial z1 (see what a1 and z1 are in comment below)
     deltaSig = dSigmoid(summedValues)
     
-    # Partial L partial Z1, where z1 are summed values of fully connected layer,
+    # Get Partial L partial Z1, where z1 are summed values of fully connected layer,
     # is equal to pL/pyhat * pyhat/pz2 * pz2/pa1 * pa1/pz1
     # yhat is prediction from output, z2 is summedVals of classify layer, a1 is output of fully connected
     # z1 is summed vals of fully connected. a1 = sigmoid (z1)

@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt, matplotlib.image as mpimg
 
 # smax True to use softmax method with cross entropy loss function
 # smax False to use MSE loss function
-smax = 0
+smax = 1
 if smax: from CNNSoftmax import *
 else: from CNN import *
 
@@ -26,7 +26,7 @@ trainingData, validationData, testDataOriginal = pickle.load(file, encoding = 'l
 file.close()
 
 numTraining = 50000 # number of training images to use
-numTesting = 10000 # number of test images to use
+numTesting = 1000 # number of test images to use
 
 trainData = trainingData[0][0:numTraining] # only pick numTraining images from 50000 training images
 trainLabel = trainingData[1][0:numTraining] # corresponding training labels
@@ -109,7 +109,7 @@ def getAccuracy(net,testData):
         if prediction == label: numCorrect += 1
         
         # print at 10% iterations during testing
-        if (i+1) % int(0.1 * len(testData)) == 0:
+        if (i+1) % int(0.01 * len(testData)) == 0:
             print( '{0}% Completed'.format(int(float(i+1) / len(testData) * 100)))
     
     # Final accuracy
